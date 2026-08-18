@@ -68,7 +68,7 @@ body{font-family:"Segoe UI",system-ui,sans-serif;margin:0;background:var(--bg);c
       <p class="eyebrow">Subsistema interno</p>
       <h1>Calculadora da Loja da Vivi</h1>
       <p class="subtitle">Precos consistentes para todos os marketplaces.</p>
-      <span class="updated-badge"><span class="dot"></span><span>Atualizacao 142</span></span>
+      <span class="updated-badge"><span class="dot"></span><span>Atualizacao 143</span></span>
       <div class="header-actions">
         <button class="btn btn-ghost" type="button" onclick="limpar()">Limpar calculo</button>
         <button class="btn btn-ghost" type="button" onclick="toggleTheme()">Tema escuro</button>
@@ -210,7 +210,7 @@ var CONFIG = {
     shein: { comissao: 0.16, taxa: 0, freteATE: { ate49: 0 }, freteACIMA: [4, 5, 5, 5, 15, 32, 63, 73, 89, 106], niveis: {1:1,2:1,3:1,4:1,5:1} },
     shopee: { comissao: { ate79: 0.20, acima79: 0.14 }, taxa: { ate79: 4, ate99: 16, ate199: 20, acima200: 26 }, frete: 0, niveis: {1:1,2:1,3:1,4:1,5:1} },
     temu: { comissao: 0, taxa: 0, frete: 0, niveis: {1:1,2:1,3:1,4:1,5:1} },
-    tiktok: { comissao: { ate50: 0.10, acima50: 0.06 }, taxa: { ate50: 4, acima50: 6 }, frete: 0, niveis: {1:1,2:1,3:1,4:1,5:1} }
+    tiktok: { comissao: { ate50: 0.10, acima50: 0.06 }, taxa: { ate50: 4, acima50: 6 }, frete: 0, fretePct: 0.06, niveis: {1:1,2:1,3:1,4:1,5:1} }
   }
 };
 var ENVIO_ML = {
@@ -320,6 +320,7 @@ function calcularPreco(entradas) {
   }
   var aliquota = CONFIG.aliq[cnpj] != null ? CONFIG.aliq[cnpj] : 0.10;
   var idxPeso = indicePeso(pesoKg);
+  var eMercadoLider = (cnpj === "FERREIRA PROSPERITA COSMETICOS LTDA");
   var resultados = {};
   Object.keys(CONFIG.canais).forEach(function (canal) {
     var cfg = CONFIG.canais[canal];
@@ -331,11 +332,11 @@ function calcularPreco(entradas) {
     var constNivel = cfg.niveis[nivel] != null ? cfg.niveis[nivel] : 1;
     function fretePara(preco) {
       if (canal === "mercadoLivre") {
-        if (nivel <= 2) {
-          if (preco <= 78.99) return 0;
-          return (cfg.freteAntigo[indicePesoAntigo(pesoKg)] || 0) * constNivel;
+        if (eMercadoLider) {
+          return custoEnvioML(pesoKg, preco) * constNivel;
         }
-        return custoEnvioML(pesoKg, preco) * constNivel;
+        if (preco <= 78.99) return 0;
+        return (cfg.freteAntigo[indicePesoAntigo(pesoKg)] || 0) * constNivel;
       }
       if (typeof cfg.frete === "number") return cfg.frete;
       if (canal === "presencial") return 0;
@@ -349,17 +350,37 @@ function calcularPreco(entradas) {
       return porFaixa(cfg.taxa, preco);
     }
     var manual = null;
-    if (valorManual > 0) {
-      manual = valorManual - (custo + valorManual * (aliquota + comissaoPct) + fretePara(valorManual) + taxaPara(valorManual));
-    }
     var vliq = null;
-    if (valorLiq > 0) {
-      vliq = (valorLiq + custo + fretePara(valorLiq) + taxaPara(valorLiq)) / denominador;
-    }
     var pct = null;
-    if (pctLiq > 0) {
-      var custoComMargem = custo * (1 + pctLiq / 100);
-      pct = (custoComMargem + fretePara(custoComMargem) + taxaPara(custoComMargem)) / denominador;
+    if (canal === "tiktok" && cfg.fretePct) {
+      var fp = cfg.fretePct;
+      if (valorManual > 0) {
+        var comM = valorManual <= 50 ? cfg.comissao.ate50 : cfg.comissao.acima50;
+        var taxaM = valorManual <= 50 ? cfg.taxa.ate50 : cfg.taxa.acima50;
+        manual = valorManual - (custo + valorManual * (aliquota + comM + fp) + taxaM);
+      }
+      if (valorLiq > 0) {
+        var vAte = (valorLiq + custo + cfg.taxa.ate50) / (1 - aliquota - cfg.comissao.ate50 - fp);
+        if (vAte <= 50) { vliq = vAte; }
+        else { vliq = (valorLiq + custo + cfg.taxa.acima50) / (1 - aliquota - cfg.comissao.acima50 - fp); }
+      }
+      if (pctLiq > 0) {
+        var ccm = custo * (1 + pctLiq / 100);
+        var pAte = (ccm + cfg.taxa.ate50) / (1 - aliquota - cfg.comissao.ate50 - fp);
+        if (pAte <= 50) { pct = pAte; }
+        else { pct = (ccm + cfg.taxa.acima50) / (1 - aliquota - cfg.comissao.acima50 - fp); }
+      }
+    } else {
+      if (valorManual > 0) {
+        manual = valorManual - (custo + valorManual * (aliquota + comissaoPct) + fretePara(valorManual) + taxaPara(valorManual));
+      }
+      if (valorLiq > 0) {
+        vliq = (valorLiq + custo + fretePara(valorLiq) + taxaPara(valorLiq)) / denominador;
+      }
+      if (pctLiq > 0) {
+        var custoComMargem = custo * (1 + pctLiq / 100);
+        pct = (custoComMargem + fretePara(custoComMargem) + taxaPara(custoComMargem)) / denominador;
+      }
     }
     resultados[canal] = { manual: manual, vliq: vliq, pct: pct };
   });
@@ -422,21 +443,15 @@ function calcular() {
     if (Manual > 0) {
       var pct1 = custoTotal > 0 ? (r.manual / custoTotal * 100) : 0;
       document.getElementById("m-" + id).textContent = fmt(r.manual) + " (" + fmtPct(pct1) + ")";
-    } else {
-      document.getElementById("m-" + id).textContent = "-";
-    }
+    } else { document.getElementById("m-" + id).textContent = "-"; }
     if (ValorLiq > 0) {
       var pct2 = custoTotal > 0 ? (ValorLiq / custoTotal * 100) : 0;
       document.getElementById("v-" + id).textContent = fmt(r.vliq) + " (" + fmtPct(pct2) + ")";
-    } else {
-      document.getElementById("v-" + id).textContent = "-";
-    }
+    } else { document.getElementById("v-" + id).textContent = "-"; }
     if (PctLiq > 0) {
       var lucro = custoTotal * PctLiq / 100;
       document.getElementById("p-" + id).textContent = fmt(r.pct) + " (" + fmt(lucro) + ")";
-    } else {
-      document.getElementById("p-" + id).textContent = "-";
-    }
+    } else { document.getElementById("p-" + id).textContent = "-"; }
   }
   fb.textContent = "Calculo pronto. Resultados atualizados automaticamente.";
 }
