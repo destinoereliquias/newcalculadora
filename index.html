@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Calculadora de Marketplaces - Loja da Vivi</title>
 <style>
-:root{--bg:#fdf2f8;--surface:#fff;--text:#4a1d33;--muted:#a06b87;--border:#e5c9d9;--primary:#db2777;--primary-dark:#be185d;--primary-light:#fce7f3;--accent:#f472b6;--ok:#10b981;--danger:#ef4444}
-.dark-mode{--bg:#1c2330;--surface:#232b39;--text:#eef1f6;--muted:#9aa7bd;--border:#3d4a63;--primary:#f472b6;--primary-dark:#ec4899;--primary-light:#3a2b45;--accent:#f9a8d4;--ok:#34d399;--danger:#f87171}
+:root{--bg:#fdf2f8;--surface:#fff;--text:#4a1d33;--muted:#a06b87;--border:#e5c9d9;--primary:#db2777;--primary-dark:#be185d;--primary-light:#fce7f3;--accent:#f472b6;--ok:#10b981;--danger:#ef4444;--warn:#f59e0b}
+.dark-mode{--bg:#1c2330;--surface:#232b39;--text:#eef1f6;--muted:#9aa7bd;--border:#3d4a63;--primary:#f472b6;--primary-dark:#ec4899;--primary-light:#3a2b45;--accent:#f9a8d4;--ok:#34d399;--danger:#f87171;--warn:#fbbf24}
 *{box-sizing:border-box}
 body{font-family:"Segoe UI",system-ui,sans-serif;margin:0;background:var(--bg);color:var(--text);line-height:1.5;transition:background .3s,color .3s}
 .wrap{max-width:1150px;margin:0 auto;padding:24px;padding-bottom:90px}
@@ -44,19 +44,34 @@ body{font-family:"Segoe UI",system-ui,sans-serif;margin:0;background:var(--bg);c
 .mode-badge{width:8px;height:8px;border-radius:50%;display:inline-block}
 .mode-badge.manual{background:var(--primary)}
 .mode-badge.vl{background:var(--ok)}
-.mode-badge.pct{background:#f59e0b}
+.mode-badge.pct{background:var(--warn)}
 .mode-pills{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
 .mode-pill{padding:7px 16px;border-radius:999px;border:1px solid var(--border);background:var(--bg);color:var(--muted);font-size:.8rem;font-weight:600;transition:all .3s}
 .mode-pill.on-manual{background:var(--primary);border-color:var(--primary);color:#fff}
 .mode-pill.on-vl{background:var(--ok);border-color:var(--ok);color:#fff}
-.mode-pill.on-pct{background:#f59e0b;border-color:#f59e0b;color:#fff}
+.mode-pill.on-pct{background:var(--warn);border-color:var(--warn);color:#fff}
+.alert-banner{padding:14px 18px;border-radius:12px;font-size:.9rem;font-weight:700;margin-bottom:16px;display:none;align-items:center;gap:10px;animation:pulse 2s infinite}
+.alert-banner.show{display:flex}
+.alert-banner.danger{background:#fef2f2;color:var(--danger);border:2px solid var(--danger)}
+.alert-banner.warning{background:#fffbeb;color:var(--warn);border:2px solid var(--warn)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.85}}
+.alert-icon{font-size:1.3rem;flex-shrink:0}
+.legend-bar{position:sticky;top:0;z-index:20;display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:10px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);transition:background .3s,border-color .3s,box-shadow .3s}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:600;color:var(--muted)}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.legend-dot.green{background:var(--ok)}
+.legend-dot.orange{background:var(--warn)}
+.legend-dot.red{background:var(--danger)}
 .table-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border)}
 .results-table{width:100%;border-collapse:collapse}
 .results-table th,.results-table td{padding:10px 12px;font-size:.88rem;border:1px solid var(--border);text-align:center}
 .results-table thead th{background:var(--bg);color:var(--muted);font-weight:700;text-transform:uppercase;font-size:.7rem}
 .results-table thead th:first-child{text-align:left}
 .results-table .marketplace-cell{font-weight:600;text-align:left;white-space:nowrap}
-.results-table .result-cell{text-align:right;font-weight:500;white-space:nowrap}
+.results-table .result-cell{text-align:right;font-weight:500;white-space:nowrap;transition:color .3s,background .3s}
+.results-table .result-cell.margin-neg{color:var(--danger);font-weight:700;background:rgba(239,68,68,.08)}
+.results-table .result-cell.margin-low{color:var(--warn);font-weight:700;background:rgba(245,158,11,.08)}
+.results-table .result-cell.margin-ok{color:var(--ok)}
 .app-footer{margin-top:28px;padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:16px;color:var(--muted);font-size:.82rem;text-align:center;margin-bottom:70px;transition:background .3s,border-color .3s}
 .nav-bar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);display:flex;justify-content:center;gap:8px;padding:10px 16px;z-index:40;transition:background .3s,border-color .3s}
 .nav-item{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 14px;border:none;border-radius:10px;background:transparent;color:var(--muted);font-size:.72rem;cursor:pointer;text-decoration:none}
@@ -72,7 +87,7 @@ body{font-family:"Segoe UI",system-ui,sans-serif;margin:0;background:var(--bg);c
       <p class="eyebrow">Subsistema interno</p>
       <h1>Calculadora da Loja da Vivi</h1>
       <p class="subtitle">Precos consistentes para todos os marketplaces.</p>
-      <span class="updated-badge"><span class="dot"></span><span>Atualizacao 144</span></span>
+      <span class="updated-badge"><span class="dot"></span><span>Atualizacao 147</span></span>
       <div id="ml-status" class="ml-status-badge antiga"><span class="dot"></span><span id="ml-status-text">ML Ferreira: tabela antiga</span></div>
       <div class="header-actions">
         <button class="btn btn-ghost" type="button" onclick="limpar()">Limpar calculo</button>
@@ -149,7 +164,15 @@ body{font-family:"Segoe UI",system-ui,sans-serif;margin:0;background:var(--bg);c
     </section>
     <section class="panel">
       <h2>Resultados por marketplace</h2>
-      <p class="panel-sub">Colunas 1 e 2 mostram a % aplicada; ultima coluna mostra o valor liquido de ganho.</p>
+      <div class="legend-bar">
+        <span class="legend-item"><span class="legend-dot green"></span>Margem saudavel (10%+)</span>
+        <span class="legend-item"><span class="legend-dot orange"></span>Margem baixa (abaixo de 10%)</span>
+        <span class="legend-item"><span class="legend-dot red"></span>Prejuizo (margem negativa)</span>
+      </div>
+      <div id="alert-banner" class="alert-banner">
+        <span class="alert-icon">⚠️</span>
+        <span id="alert-text"></span>
+      </div>
       <div class="mode-pills">
         <span class="mode-pill" id="pill-manual">Manual</span>
         <span class="mode-pill" id="pill-vl">Valor liquido</span>
@@ -173,7 +196,6 @@ body{font-family:"Segoe UI",system-ui,sans-serif;margin:0;background:var(--bg);c
             <tr><th class="marketplace-cell">MERCADO LIVRE CLASSICO</th><td class="result-cell" id="m-ml-classico">-</td><td class="result-cell" id="v-ml-classico">-</td><td class="result-cell" id="p-ml-classico">-</td></tr>
             <tr><th class="marketplace-cell">MERCADO LIVRE PREMIUM</th><td class="result-cell" id="m-ml-premium">-</td><td class="result-cell" id="v-ml-premium">-</td><td class="result-cell" id="p-ml-premium">-</td></tr>
             <tr><th class="marketplace-cell">OLIST</th><td class="result-cell" id="m-olist">-</td><td class="result-cell" id="v-olist">-</td><td class="result-cell" id="p-olist">-</td></tr>
-            <tr><th class="marketplace-cell">RD</th><td class="result-cell" id="m-rd">-</td><td class="result-cell" id="v-rd">-</td><td class="result-cell" id="p-rd">-</td></tr>
             <tr><th class="marketplace-cell">SHEIN</th><td class="result-cell" id="m-shein">-</td><td class="result-cell" id="v-shein">-</td><td class="result-cell" id="p-shein">-</td></tr>
             <tr><th class="marketplace-cell">SHOPEE</th><td class="result-cell" id="m-shopee">-</td><td class="result-cell" id="v-shopee">-</td><td class="result-cell" id="p-shopee">-</td></tr>
             <tr><th class="marketplace-cell">TEMU</th><td class="result-cell" id="m-temu">-</td><td class="result-cell" id="v-temu">-</td><td class="result-cell" id="p-temu">-</td></tr>
@@ -212,7 +234,6 @@ var CONFIG = {
     magalu: { comissao: 0.18, taxa: { ate9: 0, acima10: 2 }, freteATE: { ate79: 0 }, freteACIMA: [29.9, 29.9, 35.9, 38.9, 46.9, 68.9, 89.9, 102.9, 125.9, 139.9], niveis: {1:1,2:1,3:0.75,4:0.5,5:0.5} },
     mercadoLivre: { comissao: { classico: 0.14, premium: 0.19 }, taxa: "ML_ESPECIAL", frete: "TABELA_NOVA", freteAntigo: [40.9, 41.9, 43.9, 46.9, 51.9, 83.9, 131.9, 146.9, 171.9, 197.9], niveis: {1:1,2:1,3:0.6,4:0.5,5:0.5} },
     olist: { comissao: 0.21, taxa: 5, freteATE: { ate79: 0 }, freteACIMA: [37.9, 38.9, 42.9, 44.9, 52.9, 81.9, 127.9, 142.9, 166.9, 191.9], niveis: {1:0.8,2:0.8,3:0.6,4:0.5,5:0.5} },
-    rd: { comissao: 0.19, taxa: 0, freteATE: null, freteACIMA: [40.9, 41.9, 43.9, 46.9, 51.9, 83.9, 131.9, 146.9, 171.9, 197.9], niveis: {1:1,2:1,3:1,4:1,5:1} },
     shein: { comissao: 0.16, taxa: 0, freteATE: { ate49: 0 }, freteACIMA: [4, 5, 5, 5, 15, 32, 63, 73, 89, 106], niveis: {1:1,2:1,3:1,4:1,5:1} },
     shopee: { comissao: { ate79: 0.20, acima79: 0.14 }, taxa: { ate79: 4, ate99: 16, ate199: 20, acima200: 26 }, frete: 0, niveis: {1:1,2:1,3:1,4:1,5:1} },
     temu: { comissao: 0, taxa: 0, frete: 0, niveis: {1:1,2:1,3:1,4:1,5:1} },
@@ -363,7 +384,6 @@ function calcularPreco(entradas) {
       }
       if (typeof cfg.frete === "number") return cfg.frete;
       if (canal === "presencial") return 0;
-      if (canal === "rd") return (cfg.freteACIMA[idxPeso] || 0) * cfg.comissao;
       if (cfg.freteATE && preco <= maiorLimite(cfg.freteATE)) return porFaixa(cfg.freteATE, preco) * constNivel;
       return (cfg.freteACIMA[idxPeso] || 0) * constNivel;
     }
@@ -393,6 +413,48 @@ function calcularPreco(entradas) {
         if (pAte <= 50) { pct = pAte; }
         else { pct = (ccm + cfg.taxa.acima50) / (1 - aliquota - cfg.comissao.acima50 - fp); }
       }
+    } else if (canal === "shopee") {
+      var comS_ate79 = cfg.comissao.ate79;
+      var comS_acima = cfg.comissao.acima79;
+      var t79 = cfg.taxa.ate79;
+      var t99 = cfg.taxa.ate99;
+      var t199 = cfg.taxa.ate199;
+      var t200 = cfg.taxa.acima200;
+      if (valorManual > 0) {
+        var comM, taxaM;
+        if (valorManual <= 79) { comM = comS_ate79; taxaM = t79; }
+        else if (valorManual <= 99) { comM = comS_acima; taxaM = t99; }
+        else if (valorManual <= 199) { comM = comS_acima; taxaM = t199; }
+        else { comM = comS_acima; taxaM = t200; }
+        manual = valorManual - (custo + valorManual * (aliquota + comM) + taxaM);
+      }
+      if (valorLiq > 0) {
+        var sv1 = (valorLiq + custo + t79) / (1 - aliquota - comS_ate79);
+        if (sv1 <= 79) { vliq = sv1; }
+        else {
+          var sv2 = (valorLiq + custo + t99) / (1 - aliquota - comS_acima);
+          if (sv2 <= 99) { vliq = sv2; }
+          else {
+            var sv3 = (valorLiq + custo + t199) / (1 - aliquota - comS_acima);
+            if (sv3 <= 199) { vliq = sv3; }
+            else { vliq = (valorLiq + custo + t200) / (1 - aliquota - comS_acima); }
+          }
+        }
+      }
+      if (pctLiq > 0) {
+        var sccm = custo * (1 + pctLiq / 100);
+        var sp1 = (sccm + t79) / (1 - aliquota - comS_ate79);
+        if (sp1 <= 79) { pct = sp1; }
+        else {
+          var sp2 = (sccm + t99) / (1 - aliquota - comS_acima);
+          if (sp2 <= 99) { pct = sp2; }
+          else {
+            var sp3 = (sccm + t199) / (1 - aliquota - comS_acima);
+            if (sp3 <= 199) { pct = sp3; }
+            else { pct = (sccm + t200) / (1 - aliquota - comS_acima); }
+          }
+        }
+      }
     } else {
       if (valorManual > 0) {
         manual = valorManual - (custo + valorManual * (aliquota + comissaoPct) + fretePara(valorManual) + taxaPara(valorManual));
@@ -417,7 +479,6 @@ var LINHAS = [
   ["mercadoLivre", "ml-classico", "classico"],
   ["mercadoLivre", "ml-premium", "premium"],
   ["olist", "olist", "classico"],
-  ["rd", "rd", "classico"],
   ["shein", "shein", "classico"],
   ["shopee", "shopee", "classico"],
   ["temu", "temu", "classico"],
@@ -425,6 +486,12 @@ var LINHAS = [
 ];
 function fmt(v) { return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }); }
 function fmtPct(v) { return v.toFixed(2).replace(".", ",") + "%"; }
+function aplicarAlertaMargem(cell, margem) {
+  cell.className = "result-cell";
+  if (margem < 0) cell.classList.add("margin-neg");
+  else if (margem < 10) cell.classList.add("margin-low");
+  else cell.classList.add("margin-ok");
+}
 function atualizarPills() {
   var m = parseNum(document.getElementById("Manual").value) > 0;
   var v = parseNum(document.getElementById("ValorLiq").value) > 0;
@@ -443,6 +510,27 @@ function atualizarAliquota() {
   var a = (CONFIG.aliq[cnpj] != null ? CONFIG.aliq[cnpj] : 0.10) * 100;
   el.textContent = cnpj + " - Aliquota aplicada: " + a.toFixed(0).replace(".", ",") + "%";
 }
+function atualizarAlerta(margens) {
+  var banner = document.getElementById("alert-banner");
+  var texto = document.getElementById("alert-text");
+  var prejuizos = [];
+  var baixas = [];
+  for (var i = 0; i < margens.length; i++) {
+    var m = margens[i];
+    if (m.margem < 0) prejuizos.push(m.nome);
+    else if (m.margem < 10) baixas.push(m.nome);
+  }
+  if (prejuizos.length > 0) {
+    banner.className = "alert-banner show danger";
+    texto.textContent = "PREJUIZO em: " + prejuizos.join(", ") + ". Reveja o preco de venda!";
+  } else if (baixas.length > 0) {
+    banner.className = "alert-banner show warning";
+    texto.textContent = "Margem baixa em: " + baixas.join(", ") + " (abaixo de 10%).";
+  } else {
+    banner.className = "alert-banner";
+    texto.textContent = "";
+  }
+}
 function calcular() {
   var fb = document.getElementById("calc-feedback");
   atualizarPills();
@@ -460,23 +548,35 @@ function calcular() {
   if (!(custo > 0)) { fb.textContent = "Informe um custo maior que zero."; return; }
   if (!(Manual > 0 || ValorLiq > 0 || PctLiq > 0)) { fb.textContent = "Preencha ao menos um modo de calculo."; return; }
   var custoTotal = custo + (CONFIG.usarInsumos ? (pesoKg <= 0.3 ? CONFIG.insumos.ate300G : CONFIG.insumos.acima300G) : 0);
+  var margensColetadas = [];
   for (var i = 0; i < LINHAS.length; i++) {
     var res = calcularPreco({ custo: custo, cnpj: cnpj, nivel: nivel, pesoKg: pesoKg, plano: LINHAS[i][2], valorManual: Manual, valorLiq: ValorLiq, pctLiq: PctLiq });
     var r = res[LINHAS[i][0]];
     var id = LINHAS[i][1];
+    var nome = LINHAS[i][0];
+    var cellM = document.getElementById("m-" + id);
+    var cellV = document.getElementById("v-" + id);
+    var cellP = document.getElementById("p-" + id);
     if (Manual > 0) {
       var pct1 = custoTotal > 0 ? (r.manual / custoTotal * 100) : 0;
-      document.getElementById("m-" + id).textContent = fmt(r.manual) + " (" + fmtPct(pct1) + ")";
-    } else { document.getElementById("m-" + id).textContent = "-"; }
+      cellM.textContent = fmt(r.manual) + " (" + fmtPct(pct1) + ")";
+      aplicarAlertaMargem(cellM, pct1);
+      margensColetadas.push({ nome: nome + " (Manual)", margem: pct1 });
+    } else { cellM.textContent = "-"; cellM.className = "result-cell"; }
     if (ValorLiq > 0) {
       var pct2 = custoTotal > 0 ? (ValorLiq / custoTotal * 100) : 0;
-      document.getElementById("v-" + id).textContent = fmt(r.vliq) + " (" + fmtPct(pct2) + ")";
-    } else { document.getElementById("v-" + id).textContent = "-"; }
+      cellV.textContent = fmt(r.vliq) + " (" + fmtPct(pct2) + ")";
+      aplicarAlertaMargem(cellV, pct2);
+      margensColetadas.push({ nome: nome + " (Valor liq.)", margem: pct2 });
+    } else { cellV.textContent = "-"; cellV.className = "result-cell"; }
     if (PctLiq > 0) {
       var lucro = custoTotal * PctLiq / 100;
-      document.getElementById("p-" + id).textContent = fmt(r.pct) + " (" + fmt(lucro) + ")";
-    } else { document.getElementById("p-" + id).textContent = "-"; }
+      cellP.textContent = fmt(r.pct) + " (" + fmt(lucro) + ")";
+      aplicarAlertaMargem(cellP, PctLiq);
+      margensColetadas.push({ nome: nome + " (Pct. liq.)", margem: PctLiq });
+    } else { cellP.textContent = "-"; cellP.className = "result-cell"; }
   }
+  atualizarAlerta(margensColetadas);
   fb.textContent = "Calculo pronto. Resultados atualizados automaticamente.";
 }
 function limpar() {
@@ -486,10 +586,15 @@ function limpar() {
   document.getElementById("peso").value = "Selecione";
   document.getElementById("nivel").value = "5";
   for (var j = 0; j < LINHAS.length; j++) {
-    document.getElementById("m-" + LINHAS[j][1]).textContent = "-";
-    document.getElementById("v-" + LINHAS[j][1]).textContent = "-";
-    document.getElementById("p-" + LINHAS[j][1]).textContent = "-";
+    var cM = document.getElementById("m-" + LINHAS[j][1]);
+    var cV = document.getElementById("v-" + LINHAS[j][1]);
+    var cP = document.getElementById("p-" + LINHAS[j][1]);
+    cM.textContent = "-"; cM.className = "result-cell";
+    cV.textContent = "-"; cV.className = "result-cell";
+    cP.textContent = "-"; cP.className = "result-cell";
   }
+  document.getElementById("alert-banner").className = "alert-banner";
+  document.getElementById("alert-text").textContent = "";
   atualizarPills();
   atualizarAliquota();
   atualizarStatusML();
