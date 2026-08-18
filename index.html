@@ -18,6 +18,10 @@ body{font-family:"Segoe UI",system-ui,sans-serif;margin:0;background:var(--bg);c
 .subtitle{margin:0;opacity:.92;font-size:.92rem}
 .updated-badge{display:inline-flex;align-items:center;gap:6px;margin-top:12px;background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.35);padding:5px 12px;border-radius:999px;font-size:.76rem;font-weight:600}
 .updated-badge .dot{width:7px;height:7px;border-radius:50%;background:#4ade80}
+.ml-status-badge{display:inline-flex;align-items:center;gap:6px;margin-top:8px;background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.35);padding:5px 12px;border-radius:999px;font-size:.72rem;font-weight:600}
+.ml-status-badge .dot{width:7px;height:7px;border-radius:50%}
+.ml-status-badge.nova .dot{background:#4ade80}
+.ml-status-badge.antiga .dot{background:#fbbf24}
 .header-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
 .btn{padding:8px 14px;border:none;border-radius:10px;font-size:.85rem;cursor:pointer;font-weight:600}
 .btn-ghost{background:rgba(255,255,255,.22);color:#fff}
@@ -68,7 +72,8 @@ body{font-family:"Segoe UI",system-ui,sans-serif;margin:0;background:var(--bg);c
       <p class="eyebrow">Subsistema interno</p>
       <h1>Calculadora da Loja da Vivi</h1>
       <p class="subtitle">Precos consistentes para todos os marketplaces.</p>
-      <span class="updated-badge"><span class="dot"></span><span>Atualizacao 143</span></span>
+      <span class="updated-badge"><span class="dot"></span><span>Atualizacao 144</span></span>
+      <div id="ml-status" class="ml-status-badge antiga"><span class="dot"></span><span id="ml-status-text">ML Ferreira: tabela antiga</span></div>
       <div class="header-actions">
         <button class="btn btn-ghost" type="button" onclick="limpar()">Limpar calculo</button>
         <button class="btn btn-ghost" type="button" onclick="toggleTheme()">Tema escuro</button>
@@ -189,6 +194,7 @@ body{font-family:"Segoe UI",system-ui,sans-serif;margin:0;background:var(--bg);c
   <a class="nav-item" href="danfe.html"><span class="nav-icon">📄</span> DANFE</a>
 </nav>
 <script>
+var DATA_NOVA_TABELA_ML = new Date("2026-08-24T00:00:00-03:00");
 var CONFIG = {
   aliq: {
     "EME": 0.10,
@@ -306,6 +312,23 @@ function maiorLimite(obj) {
   });
   return m || 79;
 }
+function usarTabelaNovaML(cnpj) {
+  if (cnpj !== "FERREIRA PROSPERITA COSMETICOS LTDA") return false;
+  return new Date() >= DATA_NOVA_TABELA_ML;
+}
+function atualizarStatusML() {
+  var badge = document.getElementById("ml-status");
+  var texto = document.getElementById("ml-status-text");
+  var hoje = new Date();
+  if (hoje >= DATA_NOVA_TABELA_ML) {
+    badge.className = "ml-status-badge nova";
+    texto.textContent = "ML Ferreira: tabela nova ativa";
+  } else {
+    badge.className = "ml-status-badge antiga";
+    var dias = Math.ceil((DATA_NOVA_TABELA_ML - hoje) / 86400000);
+    texto.textContent = "ML Ferreira: tabela antiga (nova em " + dias + " dia" + (dias !== 1 ? "s" : "") + ")";
+  }
+}
 function calcularPreco(entradas) {
   var custo = entradas.custo || 0;
   var cnpj = entradas.cnpj || "";
@@ -320,7 +343,7 @@ function calcularPreco(entradas) {
   }
   var aliquota = CONFIG.aliq[cnpj] != null ? CONFIG.aliq[cnpj] : 0.10;
   var idxPeso = indicePeso(pesoKg);
-  var eMercadoLider = (cnpj === "FERREIRA PROSPERITA COSMETICOS LTDA");
+  var eTabelaNova = usarTabelaNovaML(cnpj);
   var resultados = {};
   Object.keys(CONFIG.canais).forEach(function (canal) {
     var cfg = CONFIG.canais[canal];
@@ -332,7 +355,7 @@ function calcularPreco(entradas) {
     var constNivel = cfg.niveis[nivel] != null ? cfg.niveis[nivel] : 1;
     function fretePara(preco) {
       if (canal === "mercadoLivre") {
-        if (eMercadoLider) {
+        if (eTabelaNova) {
           return custoEnvioML(pesoKg, preco) * constNivel;
         }
         if (preco <= 78.99) return 0;
@@ -424,6 +447,7 @@ function calcular() {
   var fb = document.getElementById("calc-feedback");
   atualizarPills();
   atualizarAliquota();
+  atualizarStatusML();
   var cnpj = document.getElementById("cnpj").value;
   var pesoKg = parseNum(document.getElementById("peso").value);
   var custo = parseNum(document.getElementById("custo").value);
@@ -468,6 +492,7 @@ function limpar() {
   }
   atualizarPills();
   atualizarAliquota();
+  atualizarStatusML();
   document.getElementById("calc-feedback").textContent = "Campos limpos. Preencha novamente para calcular.";
 }
 function toggleTheme() {
@@ -485,6 +510,7 @@ if (localStorage.getItem("darkMode") === "1") {
 }
 atualizarPills();
 atualizarAliquota();
+atualizarStatusML();
 </script>
 </body>
 </html>
