@@ -87,7 +87,7 @@ body{font-family:"Segoe UI",system-ui,sans-serif;margin:0;background:var(--bg);c
       <p class="eyebrow">Subsistema interno</p>
       <h1>Calculadora da Loja da Vivi</h1>
       <p class="subtitle">Precos consistentes para todos os marketplaces.</p>
-      <span class="updated-badge"><span class="dot"></span><span>Atualizacao 147</span></span>
+      <span class="updated-badge"><span class="dot"></span><span>Atualizacao 149</span></span>
       <div id="ml-status" class="ml-status-badge antiga"><span class="dot"></span><span id="ml-status-text">ML Ferreira: tabela antiga</span></div>
       <div class="header-actions">
         <button class="btn btn-ghost" type="button" onclick="limpar()">Limpar calculo</button>
@@ -392,9 +392,97 @@ function calcularPreco(entradas) {
       if (!cfg.taxa || cfg.taxa === "ML_ESPECIAL") return 0;
       return porFaixa(cfg.taxa, preco);
     }
+    function resolverML(liquidDesejado) {
+      var den = denominador;
+      if (eTabelaNova) {
+        var faixas = [
+          { min: 0, max: 12.50, taxaPct: 0.50 },
+          { min: 12.50, max: 18.99, taxaFixa: 6.25 },
+          { min: 18.99, max: 29, taxaFixa: 6.25 },
+          { min: 29, max: 48.99, taxaFixa: 6.50 },
+          { min: 48.99, max: 50, taxaFixa: 6.50 },
+          { min: 50, max: 78.99, taxaFixa: 6.75 },
+          { min: 78.99, max: 99.99, taxaFixa: 0 },
+          { min: 99.99, max: 119.99, taxaFixa: 0 },
+          { min: 119.99, max: 149.99, taxaFixa: 0 },
+          { min: 149.99, max: 199.99, taxaFixa: 0 },
+          { min: 199.99, max: Infinity, taxaFixa: 0 }
+        ];
+        for (var i = 0; i < faixas.length; i++) {
+          var f = faixas[i];
+          var precoTeste = f.max === Infinity ? f.min + 100 : Math.max(f.min + 0.01, (f.min + f.max) / 2);
+          var frete = custoEnvioML(pesoKg, precoTeste) * constNivel;
+          var P;
+          if (f.taxaPct) {
+            P = (liquidDesejado + custo + frete) / (den - f.taxaPct);
+          } else {
+            P = (liquidDesejado + custo + frete + (f.taxaFixa || 0)) / den;
+          }
+          for (var iter = 0; iter < 8; iter++) {
+            var frete2 = custoEnvioML(pesoKg, P) * constNivel;
+            if (f.taxaPct) {
+              P = (liquidDesejado + custo + frete2) / (den - f.taxaPct);
+            } else {
+              P = (liquidDesejado + custo + frete2 + (f.taxaFixa || 0)) / den;
+            }
+          }
+          if (P >= f.min && P < f.max) return P;
+        }
+      } else {
+        var freteAntigoVal = (cfg.freteAntigo[indicePesoAntigo(pesoKg)] || 0) * constNivel;
+        var faixasAntigas = [
+          { min: 0, max: 12.50, taxaPct: 0.50, frete: 0 },
+          { min: 12.50, max: 29, taxaFixa: 6.25, frete: 0 },
+          { min: 29, max: 50, taxaFixa: 6.50, frete: 0 },
+          { min: 50, max: 78.99, taxaFixa: 6.75, frete: 0 },
+          { min: 78.99, max: Infinity, taxaFixa: 0, frete: freteAntigoVal }
+        ];
+        for (var i = 0; i < faixasAntigas.length; i++) {
+          var f = faixasAntigas[i];
+          var P;
+          if (f.taxaPct) {
+            P = (liquidDesejado + custo + f.frete) / (den - f.taxaPct);
+          } else {
+            P = (liquidDesejado + custo + f.frete + (f.taxaFixa || 0)) / den;
+          }
+          if (P >= f.min && P < f.max) return P;
+        }
+      }
+      return (liquidDesejado + custo) / den;
+    }
+    function resolverGenerico(liquidDesejado) {
+      var den = denominador;
+      var P = (liquidDesejado + custo) / den;
+      for (var iter = 0; iter < 30; iter++) {
+        var frete = fretePara(P);
+        var taxa = taxaPara(P);
+        var novoP = (liquidDesejado + custo + frete + taxa) / den;
+        if (Math.abs(novoP - P) < 0.001) return novoP;
+        P = novoP;
+      }
+      return P;
+    }
+    function resolverTikTok(liquidDesejado) {
+      var fp = cfg.fretePct;
+      var pAte = (liquidDesejado + custo + cfg.taxa.ate50) / (1 - aliquota - cfg.comissao.ate50 - fp);
+      if (pAte <= 50) return pAte;
+      return (liquidDesejado + custo + cfg.taxa.acima50) / (1 - aliquota - cfg.comissao.acima50 - fp);
+    }
+    function resolverShopee(liquidDesejado) {
+      var com79 = cfg.comissao.ate79;
+      var comAcima = cfg.comissao.acima79;
+      var s1 = (liquidDesejado + custo + cfg.taxa.ate79) / (1 - aliquota - com79);
+      if (s1 <= 79) return s1;
+      var s2 = (liquidDesejado + custo + cfg.taxa.ate99) / (1 - aliquota - comAcima);
+      if (s2 <= 99) return s2;
+      var s3 = (liquidDesejado + custo + cfg.taxa.ate199) / (1 - aliquota - comAcima);
+      if (s3 <= 199) return s3;
+      return (liquidDesejado + custo + cfg.taxa.acima200) / (1 - aliquota - comAcima);
+    }
     var manual = null;
     var vliq = null;
     var pct = null;
+    var liquidPct = custo * pctLiq / 100;
     if (canal === "tiktok" && cfg.fretePct) {
       var fp = cfg.fretePct;
       if (valorManual > 0) {
@@ -402,69 +490,28 @@ function calcularPreco(entradas) {
         var taxaM = valorManual <= 50 ? cfg.taxa.ate50 : cfg.taxa.acima50;
         manual = valorManual - (custo + valorManual * (aliquota + comM + fp) + taxaM);
       }
-      if (valorLiq > 0) {
-        var vAte = (valorLiq + custo + cfg.taxa.ate50) / (1 - aliquota - cfg.comissao.ate50 - fp);
-        if (vAte <= 50) { vliq = vAte; }
-        else { vliq = (valorLiq + custo + cfg.taxa.acima50) / (1 - aliquota - cfg.comissao.acima50 - fp); }
-      }
-      if (pctLiq > 0) {
-        var ccm = custo * (1 + pctLiq / 100);
-        var pAte = (ccm + cfg.taxa.ate50) / (1 - aliquota - cfg.comissao.ate50 - fp);
-        if (pAte <= 50) { pct = pAte; }
-        else { pct = (ccm + cfg.taxa.acima50) / (1 - aliquota - cfg.comissao.acima50 - fp); }
-      }
+      if (valorLiq > 0) vliq = resolverTikTok(valorLiq);
+      if (pctLiq > 0) pct = resolverTikTok(liquidPct);
     } else if (canal === "shopee") {
-      var comS_ate79 = cfg.comissao.ate79;
-      var comS_acima = cfg.comissao.acima79;
-      var t79 = cfg.taxa.ate79;
-      var t99 = cfg.taxa.ate99;
-      var t199 = cfg.taxa.ate199;
-      var t200 = cfg.taxa.acima200;
       if (valorManual > 0) {
         var comM, taxaM;
-        if (valorManual <= 79) { comM = comS_ate79; taxaM = t79; }
-        else if (valorManual <= 99) { comM = comS_acima; taxaM = t99; }
-        else if (valorManual <= 199) { comM = comS_acima; taxaM = t199; }
-        else { comM = comS_acima; taxaM = t200; }
+        if (valorManual <= 79) { comM = cfg.comissao.ate79; taxaM = cfg.taxa.ate79; }
+        else if (valorManual <= 99) { comM = cfg.comissao.acima79; taxaM = cfg.taxa.ate99; }
+        else if (valorManual <= 199) { comM = cfg.comissao.acima79; taxaM = cfg.taxa.ate199; }
+        else { comM = cfg.comissao.acima79; taxaM = cfg.taxa.acima200; }
         manual = valorManual - (custo + valorManual * (aliquota + comM) + taxaM);
       }
-      if (valorLiq > 0) {
-        var sv1 = (valorLiq + custo + t79) / (1 - aliquota - comS_ate79);
-        if (sv1 <= 79) { vliq = sv1; }
-        else {
-          var sv2 = (valorLiq + custo + t99) / (1 - aliquota - comS_acima);
-          if (sv2 <= 99) { vliq = sv2; }
-          else {
-            var sv3 = (valorLiq + custo + t199) / (1 - aliquota - comS_acima);
-            if (sv3 <= 199) { vliq = sv3; }
-            else { vliq = (valorLiq + custo + t200) / (1 - aliquota - comS_acima); }
-          }
-        }
-      }
-      if (pctLiq > 0) {
-        var sccm = custo * (1 + pctLiq / 100);
-        var sp1 = (sccm + t79) / (1 - aliquota - comS_ate79);
-        if (sp1 <= 79) { pct = sp1; }
-        else {
-          var sp2 = (sccm + t99) / (1 - aliquota - comS_acima);
-          if (sp2 <= 99) { pct = sp2; }
-          else {
-            var sp3 = (sccm + t199) / (1 - aliquota - comS_acima);
-            if (sp3 <= 199) { pct = sp3; }
-            else { pct = (sccm + t200) / (1 - aliquota - comS_acima); }
-          }
-        }
-      }
+      if (valorLiq > 0) vliq = resolverShopee(valorLiq);
+      if (pctLiq > 0) pct = resolverShopee(liquidPct);
     } else {
       if (valorManual > 0) {
         manual = valorManual - (custo + valorManual * (aliquota + comissaoPct) + fretePara(valorManual) + taxaPara(valorManual));
       }
       if (valorLiq > 0) {
-        vliq = (valorLiq + custo + fretePara(valorLiq) + taxaPara(valorLiq)) / denominador;
+        vliq = (canal === "mercadoLivre") ? resolverML(valorLiq) : resolverGenerico(valorLiq);
       }
       if (pctLiq > 0) {
-        var custoComMargem = custo * (1 + pctLiq / 100);
-        pct = (custoComMargem + fretePara(custoComMargem) + taxaPara(custoComMargem)) / denominador;
+        pct = (canal === "mercadoLivre") ? resolverML(liquidPct) : resolverGenerico(liquidPct);
       }
     }
     resultados[canal] = { manual: manual, vliq: vliq, pct: pct };
