@@ -87,7 +87,7 @@ body{font-family:"Segoe UI",system-ui,sans-serif;margin:0;background:var(--bg);c
       <p class="eyebrow">Subsistema interno</p>
       <h1>Calculadora da Loja da Vivi</h1>
       <p class="subtitle">Precos consistentes para todos os marketplaces.</p>
-      <span class="updated-badge"><span class="dot"></span><span>Atualizacao 149</span></span>
+      <span class="updated-badge"><span class="dot"></span><span>Atualizacao 151</span></span>
       <div id="ml-status" class="ml-status-badge antiga"><span class="dot"></span><span id="ml-status-text">ML Ferreira: tabela antiga</span></div>
       <div class="header-actions">
         <button class="btn btn-ghost" type="button" onclick="limpar()">Limpar calculo</button>
@@ -450,18 +450,6 @@ function calcularPreco(entradas) {
       }
       return (liquidDesejado + custo) / den;
     }
-    function resolverGenerico(liquidDesejado) {
-      var den = denominador;
-      var P = (liquidDesejado + custo) / den;
-      for (var iter = 0; iter < 30; iter++) {
-        var frete = fretePara(P);
-        var taxa = taxaPara(P);
-        var novoP = (liquidDesejado + custo + frete + taxa) / den;
-        if (Math.abs(novoP - P) < 0.001) return novoP;
-        P = novoP;
-      }
-      return P;
-    }
     function resolverTikTok(liquidDesejado) {
       var fp = cfg.fretePct;
       var pAte = (liquidDesejado + custo + cfg.taxa.ate50) / (1 - aliquota - cfg.comissao.ate50 - fp);
@@ -508,10 +496,19 @@ function calcularPreco(entradas) {
         manual = valorManual - (custo + valorManual * (aliquota + comissaoPct) + fretePara(valorManual) + taxaPara(valorManual));
       }
       if (valorLiq > 0) {
-        vliq = (canal === "mercadoLivre") ? resolverML(valorLiq) : resolverGenerico(valorLiq);
+        if (canal === "mercadoLivre") {
+          vliq = resolverML(valorLiq);
+        } else {
+          vliq = (valorLiq + custo + fretePara(valorLiq) + taxaPara(valorLiq)) / denominador;
+        }
       }
       if (pctLiq > 0) {
-        pct = (canal === "mercadoLivre") ? resolverML(liquidPct) : resolverGenerico(liquidPct);
+        if (canal === "mercadoLivre") {
+          pct = resolverML(liquidPct);
+        } else {
+          var custoComMargem = custo * (1 + pctLiq / 100);
+          pct = (custoComMargem + fretePara(custoComMargem) + taxaPara(custoComMargem)) / denominador;
+        }
       }
     }
     resultados[canal] = { manual: manual, vliq: vliq, pct: pct };
