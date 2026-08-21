@@ -87,7 +87,7 @@ body{font-family:"Segoe UI",system-ui,sans-serif;margin:0;background:var(--bg);c
       <p class="eyebrow">Subsistema interno</p>
       <h1>Calculadora da Loja da Vivi</h1>
       <p class="subtitle">Precos consistentes para todos os marketplaces.</p>
-      <span class="updated-badge"><span class="dot"></span><span>Atualizacao 151</span></span>
+      <span class="updated-badge"><span class="dot"></span><span>Atualizacao 152</span></span>
       <div id="ml-status" class="ml-status-badge antiga"><span class="dot"></span><span id="ml-status-text">ML Ferreira: tabela antiga</span></div>
       <div class="header-actions">
         <button class="btn btn-ghost" type="button" onclick="limpar()">Limpar calculo</button>
@@ -326,13 +326,6 @@ function taxaML(preco) {
   if (preco <= 78.99) return 6.75;
   return 0;
 }
-function maiorLimite(obj) {
-  var m = 0;
-  Object.keys(obj).forEach(function (k) {
-    if (k.indexOf("ate") === 0) m = Math.max(m, parseFloat(k.replace("ate", "")));
-  });
-  return m || 79;
-}
 function usarTabelaNovaML(cnpj) {
   if (cnpj !== "FERREIRA PROSPERITA COSMETICOS LTDA") return false;
   return new Date() >= DATA_NOVA_TABELA_ML;
@@ -350,6 +343,50 @@ function atualizarStatusML() {
     texto.textContent = "ML Ferreira: tabela antiga (nova em " + dias + " dia" + (dias !== 1 ? "s" : "") + ")";
   }
 }
+function construirFaixas(canal, cfg, idxAntigo, constNivel) {
+  if (canal === "amazon") {
+    return [
+      { limite: 30, frete: cfg.freteATE.ate30 * constNivel, taxa: 0 },
+      { limite: 50, frete: cfg.freteATE.ate50 * constNivel, taxa: 0 },
+      { limite: 79, frete: cfg.freteATE.ate79 * constNivel, taxa: 0 },
+      { limite: Infinity, frete: (cfg.freteACIMA[idxAntigo] || 0) * constNivel, taxa: 0 }
+    ];
+  }
+  if (canal === "casasBahia") {
+    return [
+      { limite: 69.89, frete: 0, taxa: 0 },
+      { limite: Infinity, frete: (cfg.freteACIMA[idxAntigo] || 0) * constNivel, taxa: 0 }
+    ];
+  }
+  if (canal === "magalu") {
+    return [
+      { limite: 9.99, frete: 0, taxa: cfg.taxa.ate9 },
+      { limite: 78.99, frete: 0, taxa: cfg.taxa.acima10 },
+      { limite: Infinity, frete: (cfg.freteACIMA[idxAntigo] || 0) * constNivel, taxa: cfg.taxa.acima10 }
+    ];
+  }
+  if (canal === "olist") {
+    return [
+      { limite: 79, frete: 0, taxa: cfg.taxa },
+      { limite: Infinity, frete: (cfg.freteACIMA[idxAntigo] || 0) * constNivel, taxa: cfg.taxa }
+    ];
+  }
+  if (canal === "shein") {
+    return [
+      { limite: 49.89, frete: 0, taxa: 0 },
+      { limite: Infinity, frete: (cfg.freteACIMA[idxAntigo] || 0) * constNivel, taxa: 0 }
+    ];
+  }
+  return null;
+}
+function resolverCascata(liquidDesejado, custo, denominador, faixas) {
+  for (var i = 0; i < faixas.length; i++) {
+    var f = faixas[i];
+    var P = (liquidDesejado + custo + f.frete + f.taxa) / denominador;
+    if (i === faixas.length - 1 || P <= f.limite) return P;
+  }
+  return (liquidDesejado + custo) / denominador;
+}
 function calcularPreco(entradas) {
   var custo = entradas.custo || 0;
   var cnpj = entradas.cnpj || "";
@@ -363,7 +400,7 @@ function calcularPreco(entradas) {
     custo += (pesoKg <= 0.3 ? CONFIG.insumos.ate300G : CONFIG.insumos.acima300G);
   }
   var aliquota = CONFIG.aliq[cnpj] != null ? CONFIG.aliq[cnpj] : 0.10;
-  var idxPeso = indicePeso(pesoKg);
+  var idxAntigo = indicePesoAntigo(pesoKg);
   var eTabelaNova = usarTabelaNovaML(cnpj);
   var resultados = {};
   Object.keys(CONFIG.canais).forEach(function (canal) {
@@ -376,16 +413,20 @@ function calcularPreco(entradas) {
     var constNivel = cfg.niveis[nivel] != null ? cfg.niveis[nivel] : 1;
     function fretePara(preco) {
       if (canal === "mercadoLivre") {
-        if (eTabelaNova) {
-          return custoEnvioML(pesoKg, preco) * constNivel;
-        }
+        if (eTabelaNova) return custoEnvioML(pesoKg, preco) * constNivel;
         if (preco <= 78.99) return 0;
-        return (cfg.freteAntigo[indicePesoAntigo(pesoKg)] || 0) * constNivel;
+        return (cfg.freteAntigo[idxAntigo] || 0) * constNivel;
       }
       if (typeof cfg.frete === "number") return cfg.frete;
       if (canal === "presencial") return 0;
-      if (cfg.freteATE && preco <= maiorLimite(cfg.freteATE)) return porFaixa(cfg.freteATE, preco) * constNivel;
-      return (cfg.freteACIMA[idxPeso] || 0) * constNivel;
+      var maiorLim = 0;
+      if (cfg.freteATE) {
+        Object.keys(cfg.freteATE).forEach(function(k) {
+          if (k.indexOf("ate") === 0) maiorLim = Math.max(maiorLim, parseFloat(k.replace("ate","")));
+        });
+        if (preco <= maiorLim) return porFaixa(cfg.freteATE, preco) * constNivel;
+      }
+      return (cfg.freteACIMA[idxAntigo] || 0) * constNivel;
     }
     function taxaPara(preco) {
       if (canal === "mercadoLivre") return taxaML(preco);
@@ -413,23 +454,17 @@ function calcularPreco(entradas) {
           var precoTeste = f.max === Infinity ? f.min + 100 : Math.max(f.min + 0.01, (f.min + f.max) / 2);
           var frete = custoEnvioML(pesoKg, precoTeste) * constNivel;
           var P;
-          if (f.taxaPct) {
-            P = (liquidDesejado + custo + frete) / (den - f.taxaPct);
-          } else {
-            P = (liquidDesejado + custo + frete + (f.taxaFixa || 0)) / den;
-          }
+          if (f.taxaPct) { P = (liquidDesejado + custo + frete) / (den - f.taxaPct); }
+          else { P = (liquidDesejado + custo + frete + (f.taxaFixa || 0)) / den; }
           for (var iter = 0; iter < 8; iter++) {
             var frete2 = custoEnvioML(pesoKg, P) * constNivel;
-            if (f.taxaPct) {
-              P = (liquidDesejado + custo + frete2) / (den - f.taxaPct);
-            } else {
-              P = (liquidDesejado + custo + frete2 + (f.taxaFixa || 0)) / den;
-            }
+            if (f.taxaPct) { P = (liquidDesejado + custo + frete2) / (den - f.taxaPct); }
+            else { P = (liquidDesejado + custo + frete2 + (f.taxaFixa || 0)) / den; }
           }
           if (P >= f.min && P < f.max) return P;
         }
       } else {
-        var freteAntigoVal = (cfg.freteAntigo[indicePesoAntigo(pesoKg)] || 0) * constNivel;
+        var freteAntigoVal = (cfg.freteAntigo[idxAntigo] || 0) * constNivel;
         var faixasAntigas = [
           { min: 0, max: 12.50, taxaPct: 0.50, frete: 0 },
           { min: 12.50, max: 29, taxaFixa: 6.25, frete: 0 },
@@ -440,11 +475,8 @@ function calcularPreco(entradas) {
         for (var i = 0; i < faixasAntigas.length; i++) {
           var f = faixasAntigas[i];
           var P;
-          if (f.taxaPct) {
-            P = (liquidDesejado + custo + f.frete) / (den - f.taxaPct);
-          } else {
-            P = (liquidDesejado + custo + f.frete + (f.taxaFixa || 0)) / den;
-          }
+          if (f.taxaPct) { P = (liquidDesejado + custo + f.frete) / (den - f.taxaPct); }
+          else { P = (liquidDesejado + custo + f.frete + (f.taxaFixa || 0)) / den; }
           if (P >= f.min && P < f.max) return P;
         }
       }
@@ -470,16 +502,15 @@ function calcularPreco(entradas) {
     var manual = null;
     var vliq = null;
     var pct = null;
-    var liquidPct = custo * pctLiq / 100;
+    var custoComMargem = custo * (1 + pctLiq / 100);
     if (canal === "tiktok" && cfg.fretePct) {
-      var fp = cfg.fretePct;
       if (valorManual > 0) {
         var comM = valorManual <= 50 ? cfg.comissao.ate50 : cfg.comissao.acima50;
         var taxaM = valorManual <= 50 ? cfg.taxa.ate50 : cfg.taxa.acima50;
-        manual = valorManual - (custo + valorManual * (aliquota + comM + fp) + taxaM);
+        manual = valorManual - (custo + valorManual * (aliquota + comM + cfg.fretePct) + taxaM);
       }
       if (valorLiq > 0) vliq = resolverTikTok(valorLiq);
-      if (pctLiq > 0) pct = resolverTikTok(liquidPct);
+      if (pctLiq > 0) pct = resolverTikTok(custoComMargem);
     } else if (canal === "shopee") {
       if (valorManual > 0) {
         var comM, taxaM;
@@ -490,25 +521,24 @@ function calcularPreco(entradas) {
         manual = valorManual - (custo + valorManual * (aliquota + comM) + taxaM);
       }
       if (valorLiq > 0) vliq = resolverShopee(valorLiq);
-      if (pctLiq > 0) pct = resolverShopee(liquidPct);
+      if (pctLiq > 0) pct = resolverShopee(custoComMargem);
+    } else if (canal === "mercadoLivre") {
+      if (valorManual > 0) {
+        manual = valorManual - (custo + valorManual * (aliquota + comissaoPct) + fretePara(valorManual) + taxaPara(valorManual));
+      }
+      if (valorLiq > 0) vliq = resolverML(valorLiq);
+      if (pctLiq > 0) pct = resolverML(custoComMargem);
     } else {
       if (valorManual > 0) {
         manual = valorManual - (custo + valorManual * (aliquota + comissaoPct) + fretePara(valorManual) + taxaPara(valorManual));
       }
-      if (valorLiq > 0) {
-        if (canal === "mercadoLivre") {
-          vliq = resolverML(valorLiq);
-        } else {
-          vliq = (valorLiq + custo + fretePara(valorLiq) + taxaPara(valorLiq)) / denominador;
-        }
-      }
-      if (pctLiq > 0) {
-        if (canal === "mercadoLivre") {
-          pct = resolverML(liquidPct);
-        } else {
-          var custoComMargem = custo * (1 + pctLiq / 100);
-          pct = (custoComMargem + fretePara(custoComMargem) + taxaPara(custoComMargem)) / denominador;
-        }
+      var faixas = construirFaixas(canal, cfg, idxAntigo, constNivel);
+      if (faixas) {
+        if (valorLiq > 0) vliq = resolverCascata(valorLiq, custo, denominador, faixas);
+        if (pctLiq > 0) pct = resolverCascata(custoComMargem, custo, denominador, faixas);
+      } else {
+        if (valorLiq > 0) vliq = (valorLiq + custo) / denominador;
+        if (pctLiq > 0) pct = custoComMargem / denominador;
       }
     }
     resultados[canal] = { manual: manual, vliq: vliq, pct: pct };
@@ -547,39 +577,26 @@ function atualizarPills() {
 function atualizarAliquota() {
   var cnpj = document.getElementById("cnpj").value;
   var el = document.getElementById("aliq-display");
-  if (!cnpj || cnpj === "Selecione") {
-    el.textContent = "Selecione o CNPJ para ver a aliquota aplicada.";
-    return;
-  }
+  if (!cnpj || cnpj === "Selecione") { el.textContent = "Selecione o CNPJ para ver a aliquota aplicada."; return; }
   var a = (CONFIG.aliq[cnpj] != null ? CONFIG.aliq[cnpj] : 0.10) * 100;
   el.textContent = cnpj + " - Aliquota aplicada: " + a.toFixed(0).replace(".", ",") + "%";
 }
 function atualizarAlerta(margens) {
   var banner = document.getElementById("alert-banner");
   var texto = document.getElementById("alert-text");
-  var prejuizos = [];
-  var baixas = [];
+  var prejuizos = [], baixas = [];
   for (var i = 0; i < margens.length; i++) {
     var m = margens[i];
     if (m.margem < 0) prejuizos.push(m.nome);
     else if (m.margem < 10) baixas.push(m.nome);
   }
-  if (prejuizos.length > 0) {
-    banner.className = "alert-banner show danger";
-    texto.textContent = "PREJUIZO em: " + prejuizos.join(", ") + ". Reveja o preco de venda!";
-  } else if (baixas.length > 0) {
-    banner.className = "alert-banner show warning";
-    texto.textContent = "Margem baixa em: " + baixas.join(", ") + " (abaixo de 10%).";
-  } else {
-    banner.className = "alert-banner";
-    texto.textContent = "";
-  }
+  if (prejuizos.length > 0) { banner.className = "alert-banner show danger"; texto.textContent = "PREJUIZO em: " + prejuizos.join(", ") + ". Reveja o preco de venda!"; }
+  else if (baixas.length > 0) { banner.className = "alert-banner show warning"; texto.textContent = "Margem baixa em: " + baixas.join(", ") + " (abaixo de 10%)."; }
+  else { banner.className = "alert-banner"; texto.textContent = ""; }
 }
 function calcular() {
   var fb = document.getElementById("calc-feedback");
-  atualizarPills();
-  atualizarAliquota();
-  atualizarStatusML();
+  atualizarPills(); atualizarAliquota(); atualizarStatusML();
   var cnpj = document.getElementById("cnpj").value;
   var pesoKg = parseNum(document.getElementById("peso").value);
   var custo = parseNum(document.getElementById("custo").value);
@@ -639,9 +656,7 @@ function limpar() {
   }
   document.getElementById("alert-banner").className = "alert-banner";
   document.getElementById("alert-text").textContent = "";
-  atualizarPills();
-  atualizarAliquota();
-  atualizarStatusML();
+  atualizarPills(); atualizarAliquota(); atualizarStatusML();
   document.getElementById("calc-feedback").textContent = "Campos limpos. Preencha novamente para calcular.";
 }
 function toggleTheme() {
@@ -657,9 +672,7 @@ if (localStorage.getItem("darkMode") === "1") {
     if (btn) btn.textContent = "Tema claro";
   });
 }
-atualizarPills();
-atualizarAliquota();
-atualizarStatusML();
+atualizarPills(); atualizarAliquota(); atualizarStatusML();
 </script>
 </body>
 </html>
