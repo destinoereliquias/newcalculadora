@@ -87,7 +87,7 @@ body{font-family:"Segoe UI",system-ui,sans-serif;margin:0;background:var(--bg);c
       <p class="eyebrow">Subsistema interno</p>
       <h1>Calculadora da Loja da Vivi</h1>
       <p class="subtitle">Precos consistentes para todos os marketplaces.</p>
-      <span class="updated-badge"><span class="dot"></span><span>Atualizacao 152</span></span>
+      <span class="updated-badge"><span class="dot"></span><span>Atualizacao 153</span></span>
       <div id="ml-status" class="ml-status-badge antiga"><span class="dot"></span><span id="ml-status-text">ML Ferreira: tabela antiga</span></div>
       <div class="header-actions">
         <button class="btn btn-ghost" type="button" onclick="limpar()">Limpar calculo</button>
@@ -326,6 +326,13 @@ function taxaML(preco) {
   if (preco <= 78.99) return 6.75;
   return 0;
 }
+function maiorLimite(obj) {
+  var m = 0;
+  Object.keys(obj).forEach(function (k) {
+    if (k.indexOf("ate") === 0) m = Math.max(m, parseFloat(k.replace("ate", "")));
+  });
+  return m || 79;
+}
 function usarTabelaNovaML(cnpj) {
   if (cnpj !== "FERREIRA PROSPERITA COSMETICOS LTDA") return false;
   return new Date() >= DATA_NOVA_TABELA_ML;
@@ -419,13 +426,7 @@ function calcularPreco(entradas) {
       }
       if (typeof cfg.frete === "number") return cfg.frete;
       if (canal === "presencial") return 0;
-      var maiorLim = 0;
-      if (cfg.freteATE) {
-        Object.keys(cfg.freteATE).forEach(function(k) {
-          if (k.indexOf("ate") === 0) maiorLim = Math.max(maiorLim, parseFloat(k.replace("ate","")));
-        });
-        if (preco <= maiorLim) return porFaixa(cfg.freteATE, preco) * constNivel;
-      }
+      if (cfg.freteATE && preco <= maiorLimite(cfg.freteATE)) return porFaixa(cfg.freteATE, preco) * constNivel;
       return (cfg.freteACIMA[idxAntigo] || 0) * constNivel;
     }
     function taxaPara(preco) {
@@ -502,15 +503,16 @@ function calcularPreco(entradas) {
     var manual = null;
     var vliq = null;
     var pct = null;
-    var custoComMargem = custo * (1 + pctLiq / 100);
+    var margem = custo * pctLiq / 100;
     if (canal === "tiktok" && cfg.fretePct) {
+      var fp = cfg.fretePct;
       if (valorManual > 0) {
         var comM = valorManual <= 50 ? cfg.comissao.ate50 : cfg.comissao.acima50;
         var taxaM = valorManual <= 50 ? cfg.taxa.ate50 : cfg.taxa.acima50;
-        manual = valorManual - (custo + valorManual * (aliquota + comM + cfg.fretePct) + taxaM);
+        manual = valorManual - (custo + valorManual * (aliquota + comM + fp) + taxaM);
       }
       if (valorLiq > 0) vliq = resolverTikTok(valorLiq);
-      if (pctLiq > 0) pct = resolverTikTok(custoComMargem);
+      if (pctLiq > 0) pct = resolverTikTok(margem);
     } else if (canal === "shopee") {
       if (valorManual > 0) {
         var comM, taxaM;
@@ -521,13 +523,13 @@ function calcularPreco(entradas) {
         manual = valorManual - (custo + valorManual * (aliquota + comM) + taxaM);
       }
       if (valorLiq > 0) vliq = resolverShopee(valorLiq);
-      if (pctLiq > 0) pct = resolverShopee(custoComMargem);
+      if (pctLiq > 0) pct = resolverShopee(margem);
     } else if (canal === "mercadoLivre") {
       if (valorManual > 0) {
         manual = valorManual - (custo + valorManual * (aliquota + comissaoPct) + fretePara(valorManual) + taxaPara(valorManual));
       }
       if (valorLiq > 0) vliq = resolverML(valorLiq);
-      if (pctLiq > 0) pct = resolverML(custoComMargem);
+      if (pctLiq > 0) pct = resolverML(margem);
     } else {
       if (valorManual > 0) {
         manual = valorManual - (custo + valorManual * (aliquota + comissaoPct) + fretePara(valorManual) + taxaPara(valorManual));
@@ -535,10 +537,10 @@ function calcularPreco(entradas) {
       var faixas = construirFaixas(canal, cfg, idxAntigo, constNivel);
       if (faixas) {
         if (valorLiq > 0) vliq = resolverCascata(valorLiq, custo, denominador, faixas);
-        if (pctLiq > 0) pct = resolverCascata(custoComMargem, custo, denominador, faixas);
+        if (pctLiq > 0) pct = resolverCascata(margem, custo, denominador, faixas);
       } else {
         if (valorLiq > 0) vliq = (valorLiq + custo) / denominador;
-        if (pctLiq > 0) pct = custoComMargem / denominador;
+        if (pctLiq > 0) pct = (margem + custo) / denominador;
       }
     }
     resultados[canal] = { manual: manual, vliq: vliq, pct: pct };
@@ -577,7 +579,10 @@ function atualizarPills() {
 function atualizarAliquota() {
   var cnpj = document.getElementById("cnpj").value;
   var el = document.getElementById("aliq-display");
-  if (!cnpj || cnpj === "Selecione") { el.textContent = "Selecione o CNPJ para ver a aliquota aplicada."; return; }
+  if (!cnpj || cnpj === "Selecione") {
+    el.textContent = "Selecione o CNPJ para ver a aliquota aplicada.";
+    return;
+  }
   var a = (CONFIG.aliq[cnpj] != null ? CONFIG.aliq[cnpj] : 0.10) * 100;
   el.textContent = cnpj + " - Aliquota aplicada: " + a.toFixed(0).replace(".", ",") + "%";
 }
