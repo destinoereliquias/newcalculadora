@@ -490,15 +490,17 @@ function calcularPreco(entradas) {
       return (liquidDesejado + custo + cfg.taxa.acima50) / (1 - aliquota - cfg.comissao.acima50 - fp);
     }
     function resolverShopee(liquidDesejado) {
-      var com79 = cfg.comissao.ate79;
-      var comAcima = cfg.comissao.acima79;
-      var s1 = (liquidDesejado + custo + cfg.taxa.ate79) / (1 - aliquota - com79);
-      if (s1 <= 79) return s1;
-      var s2 = (liquidDesejado + custo + cfg.taxa.ate99) / (1 - aliquota - comAcima);
-      if (s2 <= 99) return s2;
-      var s3 = (liquidDesejado + custo + cfg.taxa.ate199) / (1 - aliquota - comAcima);
-      if (s3 <= 199) return s3;
-      return (liquidDesejado + custo + cfg.taxa.acima200) / (1 - aliquota - comAcima);
+      var comBaixa = cfg.comissao.ate79_99;
+      var comAlta = cfg.comissao.acima80;
+      var s1 = (liquidDesejado + custo + cfg.taxa.ate79_99) / (1 - aliquota - comBaixa);
+      if (s1 <= 79.99) return s1;
+      var s2 = (liquidDesejado + custo + cfg.taxa.ate99_99) / (1 - aliquota - comAlta);
+      if (s2 <= 99.99) return s2;
+      var s3 = (liquidDesejado + custo + cfg.taxa.ate199_99) / (1 - aliquota - comAlta);
+      if (s3 <= 199.99) return s3;
+      var s4 = (liquidDesejado + custo + cfg.taxa.ate499_99) / (1 - aliquota - comAlta);
+      if (s4 <= 499.99) return s4;
+      return (liquidDesejado + custo + cfg.taxa.acima500) / (1 - aliquota - comAlta);
     }
     var manual = null;
     var vliq = null;
@@ -513,13 +515,14 @@ function calcularPreco(entradas) {
       }
       if (valorLiq > 0) vliq = resolverTikTok(valorLiq);
       if (pctLiq > 0) pct = resolverTikTok(margem);
-    } else if (canal === "shopee") {
+        } else if (canal === "shopee") {
       if (valorManual > 0) {
         var comM, taxaM;
-        if (valorManual <= 79) { comM = cfg.comissao.ate79; taxaM = cfg.taxa.ate79; }
-        else if (valorManual <= 99) { comM = cfg.comissao.acima79; taxaM = cfg.taxa.ate99; }
-        else if (valorManual <= 199) { comM = cfg.comissao.acima79; taxaM = cfg.taxa.ate199; }
-        else { comM = cfg.comissao.acima79; taxaM = cfg.taxa.acima200; }
+        if (valorManual <= 79.99) { comM = cfg.comissao.ate79_99; taxaM = cfg.taxa.ate79_99; }
+        else if (valorManual <= 99.99) { comM = cfg.comissao.acima80; taxaM = cfg.taxa.ate99_99; }
+        else if (valorManual <= 199.99) { comM = cfg.comissao.acima80; taxaM = cfg.taxa.ate199_99; }
+        else if (valorManual <= 499.99) { comM = cfg.comissao.acima80; taxaM = cfg.taxa.ate499_99; }
+        else { comM = cfg.comissao.acima80; taxaM = cfg.taxa.acima500; }
         manual = valorManual - (custo + valorManual * (aliquota + comM) + taxaM);
       }
       if (valorLiq > 0) vliq = resolverShopee(valorLiq);
