@@ -656,13 +656,16 @@ function calcular() {
   }
   var pesoKg = parseFloat(pesoSel);
   var custoTotal = custo + (pesoKg <= 0.3 ? CONFIG.insumos.ate300G : CONFIG.insumos.acima300G);
-  var entradas = { custo: custo, cnpj: cnpj, nivel: nivel, pesoKg: pesoKg, valorManual: valorManual, valorLiq: valorLiq, pctLiq: pctLiq };
+  var entradas = { custo: custo, cnpj: cnpj, nivel: nivel, pesoKg: pesoKg, valorManual: valorManual, valorLiq: valorLiq, pctLiq: pctLiq, plano: "classico" };
   var res = calcularPreco(entradas);
+  var entradasPremium = Object.assign({}, entradas);
+  entradasPremium.plano = "premium";
+  var resPremium = calcularPreco(entradasPremium);
   var NOMES = { presencial: "Presencial", amazon: "Amazon", casasBahia: "Casas Bahia", magalu: "Magalu", mercadoLivre: "Mercado Livre", olist: "Olist", shein: "Shein", shopee: "Shopee", temu: "Temu", tiktok: "TikTok" };
   var margensColetadas = [];
   for (var i = 0; i < LINHAS.length; i++) {
     var canal = LINHAS[i][0], id = LINHAS[i][1];
-    var r = res[canal];
+    var r = (id === "ml-premium") ? resPremium[canal] : res[canal];
     var nome = NOMES[canal] + (id === "ml-premium" ? " Premium" : "");
     var cM = document.getElementById("m-" + id);
     var cV = document.getElementById("v-" + id);
