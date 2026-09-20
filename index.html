@@ -87,7 +87,7 @@ body{font-family:"Segoe UI",system-ui,sans-serif;margin:0;background:var(--bg);c
       <p class="eyebrow">Subsistema interno</p>
       <h1>Calculadora da Loja da Vivi</h1>
       <p class="subtitle">Precos consistentes para todos os marketplaces.</p>
-      <span class="updated-badge"><span class="dot"></span><span>Atualizacao 157</span></span>
+      <span class="updated-badge"><span class="dot"></span><span>Atualizacao 158</span></span>
       <div id="ml-status" class="ml-status-badge antiga"><span class="dot"></span><span id="ml-status-text">ML Ferreira: tabela antiga</span></div>
       <div class="header-actions">
         <button class="btn btn-ghost" type="button" onclick="limpar()">Limpar calculo</button>
@@ -434,6 +434,23 @@ function calcularPreco(entradas) {
       if (!cfg.taxa || cfg.taxa === "ML_ESPECIAL") return 0;
       return porFaixa(cfg.taxa, preco);
     }
+    function lucroEm(preco) {
+      if (canal === "tiktok" && cfg.fretePct) {
+        var comL = preco <= 50 ? cfg.comissao.ate50 : cfg.comissao.acima50;
+        var taxaL = preco <= 50 ? cfg.taxa.ate50 : cfg.taxa.acima50;
+        return preco - (custo + preco * (aliquota + comL + cfg.fretePct) + taxaL);
+      }
+      if (canal === "shopee") {
+        var comL2, taxaL2;
+        if (preco <= 79.99) { comL2 = cfg.comissao.ate79_99; taxaL2 = cfg.taxa.ate79_99; }
+        else if (preco <= 99.99) { comL2 = cfg.comissao.acima80; taxaL2 = cfg.taxa.ate99_99; }
+        else if (preco <= 199.99) { comL2 = cfg.comissao.acima80; taxaL2 = cfg.taxa.ate199_99; }
+        else if (preco <= 499.99) { comL2 = cfg.comissao.acima80; taxaL2 = cfg.taxa.ate499_99; }
+        else { comL2 = cfg.comissao.acima80; taxaL2 = cfg.taxa.acima500; }
+        return preco - (custo + preco * (aliquota + comL2) + taxaL2);
+      }
+      return preco - (custo + preco * (aliquota + comissaoPct) + fretePara(preco) + taxaPara(preco));
+    }
     function resolverML(liquidDesejado) {
       var den = denominador;
       if (eTabelaNova) {
@@ -531,7 +548,7 @@ function calcularPreco(entradas) {
       }
       if (valorLiq > 0) vliq = resolverTikTok(valorLiq);
       if (pctLiq > 0) pct = resolverTikTok(margem);
-        } else if (canal === "shopee") {
+    } else if (canal === "shopee") {
       if (valorManual > 0) {
         var comM, taxaM;
         if (valorManual <= 79.99) { comM = cfg.comissao.ate79_99; taxaM = cfg.taxa.ate79_99; }
@@ -562,7 +579,9 @@ function calcularPreco(entradas) {
         if (pctLiq > 0) pct = (margem + custo) / denominador;
       }
     }
-    resultados[canal] = { manual: manual, vliq: vliq, pct: pct };
+    var lucroVliq = (vliq != null && vliq > 0) ? lucroEm(vliq) : null;
+    var lucroPct = (pct != null && pct > 0) ? lucroEm(pct) : null;
+    resultados[canal] = { manual: manual, vliq: vliq, pct: pct, lucroVliq: lucroVliq, lucroPct: lucroPct };
   });
   return resultados;
 }
@@ -591,112 +610,4 @@ function atualizarPills() {
   var m = parseNum(document.getElementById("Manual").value) > 0;
   var v = parseNum(document.getElementById("ValorLiq").value) > 0;
   var p = parseNum(document.getElementById("PctLiq").value) > 0;
-  document.getElementById("pill-manual").className = "mode-pill" + (m ? " on-manual" : "");
-  document.getElementById("pill-vl").className = "mode-pill" + (v ? " on-vl" : "");
-  document.getElementById("pill-pct").className = "mode-pill" + (p ? " on-pct" : "");
-}
-function atualizarAliquota() {
-  var cnpj = document.getElementById("cnpj").value;
-  var el = document.getElementById("aliq-display");
-  if (!cnpj || cnpj === "Selecione") {
-    el.textContent = "Selecione o CNPJ para ver a aliquota aplicada.";
-    return;
-  }
-  var a = (CONFIG.aliq[cnpj] != null ? CONFIG.aliq[cnpj] : 0.10) * 100;
-  el.textContent = cnpj + " - Aliquota aplicada: " + a.toFixed(0).replace(".", ",") + "%";
-}
-function atualizarAlerta(margens) {
-  var banner = document.getElementById("alert-banner");
-  var texto = document.getElementById("alert-text");
-  var prejuizos = [], baixas = [];
-  for (var i = 0; i < margens.length; i++) {
-    var m = margens[i];
-    if (m.margem < 0) prejuizos.push(m.nome);
-    else if (m.margem < 10) baixas.push(m.nome);
-  }
-  if (prejuizos.length > 0) { banner.className = "alert-banner show danger"; texto.textContent = "PREJUIZO em: " + prejuizos.join(", ") + ". Reveja o preco de venda!"; }
-  else if (baixas.length > 0) { banner.className = "alert-banner show warning"; texto.textContent = "Margem baixa em: " + baixas.join(", ") + " (abaixo de 10%)."; }
-  else { banner.className = "alert-banner"; texto.textContent = ""; }
-}
-function calcular() {
-  var fb = document.getElementById("calc-feedback");
-  atualizarPills(); atualizarAliquota(); atualizarStatusML();
-  var cnpj = document.getElementById("cnpj").value;
-  var pesoKg = parseNum(document.getElementById("peso").value);
-  var custo = parseNum(document.getElementById("custo").value);
-  var nivel = parseInt(document.getElementById("nivel").value, 10) || 5;
-  var Manual = parseNum(document.getElementById("Manual").value);
-  var ValorLiq = parseNum(document.getElementById("ValorLiq").value);
-  var PctLiq = parseNum(document.getElementById("PctLiq").value);
-  if (cnpj === "Selecione") { fb.textContent = "Selecione o CNPJ para iniciar."; return; }
-  if (pesoKg <= 0) { fb.textContent = "Selecione a faixa de peso do produto."; return; }
-  if (!(custo > 0)) { fb.textContent = "Informe um custo maior que zero."; return; }
-  if (!(Manual > 0 || ValorLiq > 0 || PctLiq > 0)) { fb.textContent = "Preencha ao menos um modo de calculo."; return; }
-  var custoTotal = custo + (CONFIG.usarInsumos ? (pesoKg <= 0.3 ? CONFIG.insumos.ate300G : CONFIG.insumos.acima300G) : 0);
-  var margensColetadas = [];
-  for (var i = 0; i < LINHAS.length; i++) {
-    var res = calcularPreco({ custo: custo, cnpj: cnpj, nivel: nivel, pesoKg: pesoKg, plano: LINHAS[i][2], valorManual: Manual, valorLiq: ValorLiq, pctLiq: PctLiq });
-    var r = res[LINHAS[i][0]];
-    var id = LINHAS[i][1];
-    var nome = LINHAS[i][0];
-    var cellM = document.getElementById("m-" + id);
-    var cellV = document.getElementById("v-" + id);
-    var cellP = document.getElementById("p-" + id);
-    if (Manual > 0) {
-      var pct1 = custoTotal > 0 ? (r.manual / custoTotal * 100) : 0;
-      cellM.textContent = fmt(r.manual) + " (" + fmtPct(pct1) + ")";
-      aplicarAlertaMargem(cellM, pct1);
-      margensColetadas.push({ nome: nome + " (Manual)", margem: pct1 });
-    } else { cellM.textContent = "-"; cellM.className = "result-cell"; }
-    if (ValorLiq > 0) {
-      var pct2 = custoTotal > 0 ? (ValorLiq / custoTotal * 100) : 0;
-      cellV.textContent = fmt(r.vliq) + " (" + fmtPct(pct2) + ")";
-      aplicarAlertaMargem(cellV, pct2);
-      margensColetadas.push({ nome: nome + " (Valor liq.)", margem: pct2 });
-    } else { cellV.textContent = "-"; cellV.className = "result-cell"; }
-    if (PctLiq > 0) {
-      var lucro = custoTotal * PctLiq / 100;
-      cellP.textContent = fmt(r.pct) + " (" + fmt(lucro) + ")";
-      aplicarAlertaMargem(cellP, PctLiq);
-      margensColetadas.push({ nome: nome + " (Pct. liq.)", margem: PctLiq });
-    } else { cellP.textContent = "-"; cellP.className = "result-cell"; }
-  }
-  atualizarAlerta(margensColetadas);
-  fb.textContent = "Calculo pronto. Resultados atualizados automaticamente.";
-}
-function limpar() {
-  var ids = ["custo", "Manual", "ValorLiq", "PctLiq"];
-  for (var i = 0; i < ids.length; i++) { document.getElementById(ids[i]).value = ""; }
-  document.getElementById("cnpj").value = "Selecione";
-  document.getElementById("peso").value = "Selecione";
-  document.getElementById("nivel").value = "5";
-  for (var j = 0; j < LINHAS.length; j++) {
-    var cM = document.getElementById("m-" + LINHAS[j][1]);
-    var cV = document.getElementById("v-" + LINHAS[j][1]);
-    var cP = document.getElementById("p-" + LINHAS[j][1]);
-    cM.textContent = "-"; cM.className = "result-cell";
-    cV.textContent = "-"; cV.className = "result-cell";
-    cP.textContent = "-"; cP.className = "result-cell";
-  }
-  document.getElementById("alert-banner").className = "alert-banner";
-  document.getElementById("alert-text").textContent = "";
-  atualizarPills(); atualizarAliquota(); atualizarStatusML();
-  document.getElementById("calc-feedback").textContent = "Campos limpos. Preencha novamente para calcular.";
-}
-function toggleTheme() {
-  var btn = document.querySelector(".btn-ghost:last-of-type");
-  var dark = document.documentElement.classList.toggle("dark-mode");
-  if (btn) btn.textContent = dark ? "Tema claro" : "Tema escuro";
-  try { localStorage.setItem("darkMode", dark ? "1" : "0"); } catch (e) {}
-}
-if (localStorage.getItem("darkMode") === "1") {
-  document.documentElement.classList.add("dark-mode");
-  window.addEventListener("DOMContentLoaded", function() {
-    var btn = document.querySelector(".btn-ghost:last-of-type");
-    if (btn) btn.textContent = "Tema claro";
-  });
-}
-atualizarPills(); atualizarAliquota(); atualizarStatusML();
-</script>
-</body>
-</html>
+  document.getElementById("pill-manual
