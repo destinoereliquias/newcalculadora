@@ -87,7 +87,7 @@ body{font-family:"Segoe UI",system-ui,sans-serif;margin:0;background:var(--bg);c
       <p class="eyebrow">Subsistema interno</p>
       <h1>Calculadora da Loja da Vivi</h1>
       <p class="subtitle">Precos consistentes para todos os marketplaces.</p>
-      <span class="updated-badge"><span class="dot"></span><span>Atualizacao 156</span></span>
+      <span class="updated-badge"><span class="dot"></span><span>Atualizacao 157</span></span>
       <div id="ml-status" class="ml-status-badge antiga"><span class="dot"></span><span id="ml-status-text">ML Ferreira: tabela antiga</span></div>
       <div class="header-actions">
         <button class="btn btn-ghost" type="button" onclick="limpar()">Limpar calculo</button>
@@ -434,7 +434,7 @@ function calcularPreco(entradas) {
       if (!cfg.taxa || cfg.taxa === "ML_ESPECIAL") return 0;
       return porFaixa(cfg.taxa, preco);
     }
-    function resolverML(liquidDesejado) {
+    function     function resolverML(liquidDesejado) {
       var den = denominador;
       if (eTabelaNova) {
         var faixas = [
@@ -464,6 +464,14 @@ function calcularPreco(entradas) {
           }
           if (P >= f.min && P < f.max) return P;
         }
+        for (var j = 0; j < faixas.length; j++) {
+          var fj = faixas[j];
+          if (fj.max === Infinity) break;
+          var piso = fj.min + 0.01;
+          var denEfetivo = fj.taxaPct ? (den - fj.taxaPct) : den;
+          var liquidoNoPiso = piso * denEfetivo - custo - custoEnvioML(pesoKg, piso) * constNivel - (fj.taxaFixa || 0);
+          if (liquidoNoPiso >= liquidDesejado) return piso;
+        }
       } else {
         var freteAntigoVal = (cfg.freteAntigo[idxAntigo] || 0) * constNivel;
         var faixasAntigas = [
@@ -473,12 +481,20 @@ function calcularPreco(entradas) {
           { min: 50, max: 78.99, taxaFixa: 6.75, frete: 0 },
           { min: 78.99, max: Infinity, taxaFixa: 0, frete: freteAntigoVal }
         ];
-        for (var i = 0; i < faixasAntigas.length; i++) {
-          var f = faixasAntigas[i];
-          var P;
-          if (f.taxaPct) { P = (liquidDesejado + custo + f.frete) / (den - f.taxaPct); }
-          else { P = (liquidDesejado + custo + f.frete + (f.taxaFixa || 0)) / den; }
-          if (P >= f.min && P < f.max) return P;
+        for (var i2 = 0; i2 < faixasAntigas.length; i2++) {
+          var f2 = faixasAntigas[i2];
+          var P2;
+          if (f2.taxaPct) { P2 = (liquidDesejado + custo + f2.frete) / (den - f2.taxaPct); }
+          else { P2 = (liquidDesejado + custo + f2.frete + (f2.taxaFixa || 0)) / den; }
+          if (P2 >= f2.min && P2 < f2.max) return P2;
+        }
+        for (var j2 = 0; j2 < faixasAntigas.length; j2++) {
+          var fj2 = faixasAntigas[j2];
+          if (fj2.max === Infinity) break;
+          var piso2 = fj2.min + 0.01;
+          var denEfetivo2 = fj2.taxaPct ? (den - fj2.taxaPct) : den;
+          var liquidoNoPiso2 = piso2 * denEfetivo2 - custo - fj2.frete - (fj2.taxaFixa || 0);
+          if (liquidoNoPiso2 >= liquidDesejado) return piso2;
         }
       }
       return (liquidDesejado + custo) / den;
