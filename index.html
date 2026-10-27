@@ -716,5 +716,24 @@ function toggleTheme() {
 }
 atualizarStatusML();
 </script>
+<div id="gate" style="position:fixed;inset:0;background:#fdf2f8;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;font-family:'Segoe UI',sans-serif;">
+  <h2 style="color:#be185d;margin:0;">🔒 Acesso restrito</h2>
+  <input id="gate-pass" type="password" placeholder="Senha" style="padding:12px;border:2px solid #db2777;border-radius:10px;font-size:1rem;text-align:center;">
+  <button onclick="tentarEntrar()" style="padding:10px 24px;background:#db2777;color:#fff;border:none;border-radius:10px;font-size:1rem;cursor:pointer;">Entrar</button>
+  <p id="gate-erro" style="color:#ef4444;font-size:.85rem;margin:0;"></p>
+</div>
+<script>
+(function(){
+  var SENHA = "vivi2026";
+  var gate = document.getElementById("gate");
+  if (sessionStorage.getItem("gateOk") === "1") { gate.style.display = "none"; return; }
+  window.tentarEntrar = function(){
+    var v = document.getElementById("gate-pass").value;
+    if (v === SENHA) { sessionStorage.setItem("gateOk","1"); gate.style.display = "none"; }
+    else { document.getElementById("gate-erro").textContent = "Senha incorreta."; }
+  };
+  document.getElementById("gate-pass").addEventListener("keydown", function(e){ if(e.key==="Enter") tentarEntrar(); });
+})();
+</script>
 </body>
 </html>
